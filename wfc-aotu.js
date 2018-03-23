@@ -13,6 +13,9 @@ async function mainXz() {
 	// 先判断有没有余额
 	var	salary = await getBalance();
 	console.log(salary);
+	if (salary == '未登录') {
+		return;
+	}
 	if (salary == -1) {
 		console.log('余额为-1，表示获取余额发生错误，重新开始执行mian函数');
 		console.log('现在的时间是 '+ new Date());
@@ -22,11 +25,14 @@ async function mainXz() {
 	if (salary < 20) {
 		console.log('余额小于20,3分钟后重新执行mian函数');
 		console.log('现在的时间是 '+ new Date());
-		setTimeout(mainXz, 180000);
+		setTimeout(mainXz, 3*60*1000);
 		return;
 	}
 	var footballInfo = await searchLatest(footballUrl);
 	var basketballInfo = await searchLatest(basketballUrl);
+	if (footballInfo == '未登录' || basketballInfo == '未登录') {
+		return;
+	}
 	if (footballInfo == -1 || basketballInfo == -1) {
 		console.log('获取球赛列表发生错误，现在开始重新运行main函数');
 		console.log('现在的时间是 '+ new Date());
@@ -62,9 +68,9 @@ async function mainXz() {
 		keepLogin(7200000);
 		return;
 	}
-	if (xzInfo.time - new Date() > 7*60*60*1000) {
+	if (xzInfo.time - new Date() > 10*60*60*1000) {
 		// 符合条件的赛事大于8个小时后开赛则不选择
-		console.log('符合条件的赛事大于7个小时后开赛则不选择');
+		console.log('符合条件的赛事大于10个小时后开赛则不选择');
 		console.log('现在的时间是 '+ new Date());
 		console.log('5分钟后再次查询');
 		setTimeout(mainXz, 5*60*1000);
@@ -74,7 +80,7 @@ async function mainXz() {
 }
 mainXz()
 
-async function keepLogin(totalTime, p = 20) {
+async function keepLogin(totalTime, p = 30) {
 	var i = p;
 	console.log('我开始保持登录状态');
 	console.log('现在的时间是 '+ new Date());
@@ -88,6 +94,10 @@ async function keepLogin(totalTime, p = 20) {
 				console.log('现在的时间是 ' + new Date());
 				try {
 					var competitionList = await $.get('https://www.wfcworld.com/wap/competitionList/1');
+					if (checkLogin(competitionList) == '未登录') {
+						console.info('你已经退出登录了，请手动登录，然后再执行程序');
+						return;
+					}
 					getList();
 				} catch (err) {
 					console.log('保持登录状态时发生错误，重新执行保持登录函数');
@@ -104,6 +114,10 @@ async function getBalance() {
 	var salary;
 	try {
 		var competitionList = await $.get('https://www.wfcworld.com/wap/competitionList/1');
+		if (checkLogin(competitionList) == '未登录') {
+			console.info('你已经退出登录了，请手动登录，然后再执行程序');
+			return '未登录';
+		}
 	} catch (err) {
 		console.log('获取余额时发生错误');
 		console.log('现在的时间是 '+ new Date());
@@ -125,6 +139,10 @@ async function searchLatest(footballUrl) {
 	try {
 		// 首先获取足球赛事列表
 		footballList = await $.get(footballUrl);
+		if (checkLogin(footballList) == '未登录') {
+			console.info('你已经退出登录了，请手动登录，然后再执行程序');
+			return '未登录';
+		}
 	} catch (err) {
 		console.log('获取球赛列表发生错误！');
 		console.log('现在的时间是 '+ new Date());
@@ -145,6 +163,10 @@ async function searchLatest(footballUrl) {
 		var competitionDetailList;
 		try {
 			var competitionDetailList = await $.get(competitionDetailUrl + footballNumList[i].slice(5,-1));
+			if (checkLogin(competitionDetailList) == '未登录') {
+				console.info('你已经退出登录了，请手动登录，然后再执行程序');
+				return '未登录';
+			}
 		} catch (err) {
 			console.log('获取球赛详情发生错误！');
 			console.log('现在的时间是 '+ new Date());
@@ -170,6 +192,18 @@ async function searchLatest(footballUrl) {
      	// 余额
      	var salary = $($(vdom).find('ul')[0]).find('span').text();
      	console.log(salary);
+
+     	var competitionStartTime = new Date(competitionDetailList.match(/\d*-\d*-\d* \d*:\d*:\d*/));
+
+     	if (competitionInfo.xzId && competitionInfo.competitionStartTime < competitionStartTime) {
+     		console.log('最终找到的下注信息是，比赛时间： ' + competitionInfo.competitionStartTime + ' ' + '收益 ' + competitionInfo.income);
+ 			return {
+ 				time: competitionInfo.competitionStartTime,
+ 				xzId: competitionInfo.xzId,
+ 				salary: salary
+ 			};
+     	}
+
      	if(Number(volume) > Number(salary) && Number(salary) > 20) {
  			// 表示可以下单
  			// console.log('可以下单了');
@@ -178,8 +212,6 @@ async function searchLatest(footballUrl) {
      		// 比分的id
      		var xzId = $($(vdom).find('table')[0]).find('tr:last-child td:last-child').attr('id').slice(3);
      		
- 			var competitionStartTime = new Date(competitionDetailList.match(/\d*-\d*-\d* \d*:\d*:\d*/));
-
  			console.log('发现一个可以下注的比分，比赛时间是 ' + competitionStartTime + ' ' + '收益是 ' + income);
  			// 判断 competitionInfo 是否是空对象，是对象就第一次赋值
  			if (!competitionInfo.xzId) {
@@ -227,11 +259,16 @@ async function xiazhu(xzId, salary, xzInfo) {
  			gp_id: xzId,
  			money: salary
  		});
+ 		if (checkLogin(xzResult) == '未登录') {
+			console.info('你已经退出登录了，请手动登录，然后再执行程序');
+			return;
+		}
 	} catch (err) {
-		console.log('下注函数发生错误，3秒钟后再次尝试下注');
+		console.log('下注函数发生错误，10秒钟后再次尝试下注，错误信息如下');
+		console.log(err);
 		console.log('现在的时间是 '+ new Date());
 		xzResult = -1;
-		setTimeout(xiazhu.bind(null, xzId, salary, xzInfo),3000);
+		setTimeout(xiazhu.bind(null, xzId, salary, xzInfo),10000);
 	}
 	if (xzResult == -1) {
 		return;
@@ -248,5 +285,13 @@ async function xiazhu(xzId, salary, xzInfo) {
 		console.error('没钱了，快充值吧')
 	} else if (xzResult.status == 0 && xzResult.msg == '重复提交,请稍后重试!') {
 		await setTimeout(mainXz,3000);
+	}
+}
+
+function checkLogin(result) {
+	if (result.indexOf && result.indexOf('You are being redirected') > -1) {
+		return '未登录';
+	} else {
+		return '已登录';
 	}
 }
