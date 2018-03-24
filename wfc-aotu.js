@@ -9,6 +9,8 @@ var basketballUrl = 'https://www.wfcworld.com/wap/competitionList/2';
 
 // https://www.wfcworld.com/api/bet  POST  gp_id: 97465  money: 20
 
+var mainTimer;
+
 async function mainXz() {
 	// 先判断有没有余额
 	var	salary = await getBalance();
@@ -19,28 +21,46 @@ async function mainXz() {
 	if (salary == -1) {
 		console.log('余额为-1，表示获取余额发生错误，重新开始执行mian函数');
 		console.log('现在的时间是 '+ new Date());
-		setTimeout(mainXz, 3000);
+		if (mainTimer) {
+			clearTimeout(mainTimer);
+		}
+		mainTimer = setTimeout(mainXz, 3000);
 		return;
 	}
 	if (salary < 20) {
 		console.log('余额小于20,3分钟后重新执行mian函数');
 		console.log('现在的时间是 '+ new Date());
-		setTimeout(mainXz, 3*60*1000);
+		if (mainTimer) {
+			clearTimeout(mainTimer);
+		}
+		mainTimer = setTimeout(mainXz, 3*60*1000);
 		return;
 	}
 	var footballInfo = await searchLatest(footballUrl);
 	var basketballInfo = await searchLatest(basketballUrl);
 	if (footballInfo == '未登录' || basketballInfo == '未登录') {
+		if (mainTimer) {
+			clearTimeout(mainTimer);
+		}
+		mainTimer = setTimeout(mainXz, 3*1000);
 		return;
 	}
 	if (footballInfo == -1 || basketballInfo == -1) {
 		console.log('获取球赛列表发生错误，现在开始重新运行main函数');
 		console.log('现在的时间是 '+ new Date());
-		setTimeout(mainXz, 3000);
+		if (mainTimer) {
+			clearTimeout(mainTimer);
+		}
+		mainTimer = setTimeout(mainXz, 3000);
 		return;
 	}
 	if (footballInfo == -2 || basketballInfo == -2) {
 		console.error('平台有可能改了布局结构，快点更新程序吧');
+		if (mainTimer) {
+			clearTimeout(mainTimer);
+		}
+		mainTimer = setTimeout(mainXz, 3*1000);
+		return;
 		return;
 	}
 	console.log(footballInfo);
@@ -64,16 +84,22 @@ async function mainXz() {
 		// 足球和篮球都没有可选的
 		console.log('啥也没有选择的，垃圾平台');
 		console.log('现在的时间是 '+ new Date());
-		setTimeout(mainXz, 7200000);
+		if (mainTimer) {
+			clearTimeout(mainTimer);
+		}
+		mainTimer = setTimeout(mainXz, 7200000);
 		keepLogin(7200000);
 		return;
 	}
 	if (xzInfo.time - new Date() > 10*60*60*1000) {
-		// 符合条件的赛事大于8个小时后开赛则不选择
+		// 符合条件的赛事大于10个小时后开赛则不选择
 		console.log('符合条件的赛事大于10个小时后开赛则不选择');
 		console.log('现在的时间是 '+ new Date());
 		console.log('5分钟后再次查询');
-		setTimeout(mainXz, 5*60*1000);
+		if (mainTimer) {
+			clearTimeout(mainTimer);
+		}
+		mainTimer = setTimeout(mainXz, 5*60*1000);
 	} else {
 		xiazhu(xzInfo.xzId, xzInfo.salary, xzInfo);
 	}
@@ -93,18 +119,28 @@ async function keepLogin(totalTime, p = 30) {
 				console.log('我要保持登录状态，i的值是 ' + i);
 				console.log('现在的时间是 ' + new Date());
 				try {
-					var competitionList = await $.get('https://www.wfcworld.com/wap/competitionList/1');
-					if (checkLogin(competitionList) == '未登录') {
-						console.info('你已经退出登录了，请手动登录，然后再执行程序');
+					var	salary = await getBalance();
+					console.log('现在的余额是 ', salary);
+					if (salary > 20) {
+						console.info('发现余额大于20，可能是赛事取消，开始执行mian函数');
+						if (mainTimer) {
+							clearTimeout(mainTimer);
+						}
+						mainXz();
 						return;
 					}
+					// var competitionList = await $.get('https://www.wfcworld.com/wap/competitionList/1');
+					// if (checkLogin(competitionList) == '未登录') {
+					// 	console.info('你已经退出登录了，请手动登录，然后再执行程序');
+					// 	return;
+					// }
 					getList();
 				} catch (err) {
 					console.log('保持登录状态时发生错误，重新执行保持登录函数');
 					console.log('现在的时间是 '+ new Date());
 					keepLogin(totalTime, i);
 				}
-			}, totalTime/20);
+			}, totalTime/30);
 		}
 	}
 }
@@ -277,14 +313,23 @@ async function xiazhu(xzId, salary, xzInfo) {
  		console.log(xzResult);
  		console.log('将在 ' + xzInfo.time + ' 后两个小时开始获取赛事列表');
 		console.log('现在的时间是 '+ new Date());
-		setTimeout(mainXz, xzInfo.time - new Date() + 7200000);
+		if (mainTimer) {
+			clearTimeout(mainTimer);
+		}
+		mainTimer = setTimeout(mainXz, xzInfo.time - new Date() + 7200000);
 		keepLogin(xzInfo.time - new Date() + 7200000);
 	} else if (xzResult.status == 0 && xzResult.msg == '该波胆可交易量不足'){
- 		setTimeout(mainXz, 3000);
+		if (mainTimer) {
+			clearTimeout(mainTimer);
+		}
+ 		mainTimer = setTimeout(mainXz, 3000);
 	} else if (xzResult.status == 0 && xzResult.msg == '余额不足，请充值') {
 		console.error('没钱了，快充值吧')
 	} else if (xzResult.status == 0 && xzResult.msg == '重复提交,请稍后重试!') {
-		await setTimeout(mainXz,3000);
+		if (mainTimer) {
+			clearTimeout(mainTimer);
+		}
+		mainTimer = await setTimeout(mainXz,3000);
 	}
 }
 
