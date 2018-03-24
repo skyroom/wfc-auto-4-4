@@ -13,29 +13,15 @@ var mainTimer;
 
 async function mainXz() {
 	// 先判断有没有余额
-	var	salary = await getBalance();
-	console.log(salary);
-	if (salary == '未登录') {
-		return;
-	}
-	if (salary == -1) {
-		console.log('余额为-1，表示获取余额发生错误，重新开始执行mian函数');
-		console.log('现在的时间是 '+ new Date());
-		if (mainTimer) {
-			clearTimeout(mainTimer);
-		}
-		mainTimer = setTimeout(mainXz, 3000);
-		return;
-	}
-	if (salary < 20) {
-		console.log('余额小于20,3分钟后重新执行mian函数');
-		console.log('现在的时间是 '+ new Date());
+	var	salaryResult = await getBalance();
+	if (!salaryResult) {
 		if (mainTimer) {
 			clearTimeout(mainTimer);
 		}
 		mainTimer = setTimeout(mainXz, 3*60*1000);
 		return;
 	}
+	
 	var footballInfo = await searchLatest(footballUrl);
 	var basketballInfo = await searchLatest(basketballUrl);
 	if (footballInfo == '未登录' || basketballInfo == '未登录') {
@@ -60,7 +46,6 @@ async function mainXz() {
 			clearTimeout(mainTimer);
 		}
 		mainTimer = setTimeout(mainXz, 3*1000);
-		return;
 		return;
 	}
 	console.log(footballInfo);
@@ -119,8 +104,15 @@ async function keepLogin(totalTime, p = 30) {
 				console.log('我要保持登录状态，i的值是 ' + i);
 				console.log('现在的时间是 ' + new Date());
 				try {
-					var	salary = await getBalance();
+					var	salaryResult = await getBalance();
 					console.log('现在的余额是 ', salary);
+					if (!salaryResult) {
+						if (mainTimer) {
+							clearTimeout(mainTimer);
+						}
+						mainTimer = setTimeout(mainXz, 3*60*1000);
+						return;
+					}
 					if (salary > 20) {
 						console.info('发现余额大于20，可能是赛事取消，开始执行mian函数');
 						if (mainTimer) {
@@ -151,21 +143,55 @@ async function getBalance() {
 	try {
 		var competitionList = await $.get('https://www.wfcworld.com/wap/competitionList/1');
 		if (checkLogin(competitionList) == '未登录') {
-			console.info('你已经退出登录了，请手动登录，然后再执行程序');
-			return '未登录';
+			salary =  '未登录';
 		}
 	} catch (err) {
-		console.log('获取余额时发生错误');
-		console.log('现在的时间是 '+ new Date());
 		competitionList = -1;
 	}
 	if (competitionList == -1) {
-		return -1;
+		salary = -1;
 	}
 	var vdomHtml = competitionList.match(/<head>[\s\S]*<\/body>/);
 	var vdom = document.createElement("html");
 	vdom.innerHTML = vdomHtml;
-	salary = Number($($(vdom).find('ul')[0]).find('span').text());
+	// salary = Number($($(vdom).find('ul')[0]).find('span').text());
+	var $salary = $(vdom).find('#jingtai');
+	salary = Numeber($salary.text());
+	if ($salary.length == 0) {
+		console.log('页面没有余额，发生了不知道是什么的意外。');
+		salary = -2;
+	}
+	if (salary == '未登录') {
+		console.info('你已经退出登录了，程序尝试接着执行，如果不行，请手动登录，再运行程序');
+		return false;
+	}
+	if (salary == -1) {
+		console.log('余额为-1，表示获取余额发生错误，重新开始执行mian函数');
+		console.log('现在的时间是 '+ new Date());
+		// if (mainTimer) {
+		// 	clearTimeout(mainTimer);
+		// }
+		// mainTimer = setTimeout(mainXz, 3000);
+		return false;
+	}
+	if (salary < 20) {
+		console.log('余额小于20,3分钟后重新执行mian函数');
+		console.log('现在的时间是 '+ new Date());
+		// if (mainTimer) {
+		// 	clearTimeout(mainTimer);
+		// }
+		// mainTimer = setTimeout(mainXz, 3*60*1000);
+		return false;
+	}
+	if (salary == -2) {
+		console.log('余额为-2,表示获取接口正常但是返回的页面没有余额，可能是系统在维护。3分钟后重新执行mian函数');
+		console.log('现在的时间是 '+ new Date());
+		// if (mainTimer) {
+		// 	clearTimeout(mainTimer);
+		// }
+		// mainTimer = setTimeout(mainXz, 3*60*1000);
+		return false;
+	}
 	return salary;
 }
 
